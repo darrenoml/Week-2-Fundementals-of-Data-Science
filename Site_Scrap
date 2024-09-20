@@ -1,0 +1,87 @@
+from bs4 import BeautifulSoup
+import requests
+import re
+import pandas as pd
+
+headers = {'Accept-Language': 'en-US,en;q=0.8'}
+url = 'https://www.carsome.id/beli-mobil-bekas'
+
+soups = []
+for i in range(1, 100):
+    page = requests.get(url + '?pageNo=' + str(i), headers=headers)
+    soup = BeautifulSoup(page.text, 'html.parser')
+    if soup.find("div", class_="no-card__title"):
+        break
+    soups.append(soup)
+len(soups)
+
+car_type = []
+car_model = []
+car_link = []
+car_year = []
+
+elms = [] 
+for soup in soups:
+    for elm in soup.find_all('a', class_='mod-b-card__title'):
+        elms.append(elm)
+
+for elm in elms:
+    # print("car_link:",elm.get('href'))
+    car_link.append("https://carsome.id"+elm.get('href'))
+    type_model = elm.find_all('p')
+    # print("car_type:", type_model[0].text)
+    split_text = type_model[0].text.replace("\n", "").split()
+    car_year.append(split_text[0])
+    car_type.append(split_text[1])
+    
+    # print("car_model:", type_model[1].text)
+    # process car model
+    split_text = type_model[1].text.replace("\n", "").split()
+    car_model.append(" ".join(split_text))
+
+# scrap mileage, transmission, location
+car_mileage = []
+car_transmission = []
+car_location = []
+
+elms = [] 
+for soup in soups:
+    for elm in soup.find_all('div', class_='mod-b-card__car-other'):
+        elms.append(elm)
+
+for elm in elms:
+    spans = elm.find_all('span')
+    # print("mileage:", spans[0].text)
+    car_mileage.append(spans[0].text)
+    # print("transmission:", spans[1].text)
+    car_transmission.append(spans[1].text)
+    # print("location:", spans[2].text)
+    car_location.append(spans[2].text)
+
+# scrap price
+car_price = []
+elms = [] 
+for soup in soups:
+    for elm in soup.select('div.mod-card__price__total strong'):
+        elms.append(elm)
+
+for elm in elms:
+    # print("Rp", elm.text)
+    car_price.append(elm.text)
+
+# create dataframe
+car_df = pd.DataFrame({
+    "car_model": car_model,
+    "car_type": car_type,
+    "car_year": car_year,
+    "car_mileage": car_mileage,
+    "car_location": car_location,
+    "car_price": car_price,
+    "car_link": car_link, 
+    "car_transmission": car_transmission
+})
+car_df["car_model"].str.strip()
+car_df["car_type"].str.strip()
+car_df.head()
+
+car_df.to_csv('carsome.csv', index=False)
